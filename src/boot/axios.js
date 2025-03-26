@@ -1,24 +1,31 @@
 import { defineBoot } from '#q-app/wrappers'
 import axios from 'axios'
 
-// Be careful when using SSR for cross-request state pollution
-// due to creating a Singleton instance here;
-// If any client changes this (global) instance, it might be a
-// good idea to move this instance creation inside of the
-// "export default () => {}" function below (which runs individually
-// for each client)
-const api = axios.create({ baseURL: 'https://api.example.com' })
+// Create an Axios instance for public (unauthenticated) API calls
+const publicApi = axios.create({ baseURL: 'http://localhost:8000/api/items/' })
+
+// Create an Axios instance for authenticated API calls
+const authApi = axios.create({ baseURL: 'http://localhost:8000/api/items/' })
+
+// Add an interceptor to attach the token to authenticated requests
+authApi.interceptors.request.use(
+  (config) => {
+    const token = sessionStorage.getItem('authToken') // Retrieve token from sessionStorage instead of localStorage
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return error
+  },
+)
 
 export default defineBoot(({ app }) => {
-  // for use inside Vue files (Options API) through this.$axios and this.$api
-
+  // Make both Axios instances available globally in Vue components
   app.config.globalProperties.$axios = axios
-  // ^ ^ ^ this will allow you to use this.$axios (for Vue Options API form)
-  //       so you won't necessarily have to import axios in each vue file
-
-  app.config.globalProperties.$api = api
-  // ^ ^ ^ this will allow you to use this.$api (for Vue Options API form)
-  //       so you can easily perform requests against your app's API
+  app.config.globalProperties.$publicApi = publicApi
+  app.config.globalProperties.$authApi = authApi
 })
 
-export { api }
+export { publicApi, authApi }
